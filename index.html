@@ -1,93 +1,78 @@
 <!DOCTYPE html>
-
-<html>
-
+<html lang="uk">
 <head>
-
-<meta charset="utf-8">
-
-<title>Теплиці</title>
-
-<style>
-
-body{
-
-  font-family:Arial;
-
-  background:#111;
-
-  color:white;
-
-}
-
-.card{
-
-  background:#222;
-
-  margin:10px;
-
-  padding:15px;
-
-  border-radius:10px;
-
-}
-
-.temp{
-
-  font-size:32px;
-
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenHouseWeb</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #101820;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 { text-align: center; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 15px;
+      max-width: 700px;
+      margin: 20px auto;
+    }
+    .card {
+      background: #1f2933;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 0 10px #0005;
+    }
+    .num { font-size: 18px; opacity: 0.8; }
+    .temp { font-size: 36px; font-weight: bold; margin-top: 10px; }
+    .status { text-align: center; margin-top: 20px; opacity: 0.7; }
+  </style>
 </head>
-
 <body>
 
-<h1>🌱 Теплиці</h1>
+  <h1>Теплиці</h1>
 
-<div id="content"></div>
+  <div class="grid" id="greenhouses"></div>
+  <div class="status" id="status">Завантаження...</div>
 
-<script>
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbztSj4nMniyEg00-sxMw-3eggliSRNr_ti8xviBCKfk5z9jZnWNwY5QbSH1WIFwLWzxMA/exec';
 
-const API =
+    async function loadData() {
+      const box = document.getElementById('greenhouses');
+      const status = document.getElementById('status');
 
-'https://script.google.com/macros/s/AKfycbx_OBJe-acAUBDBZmw8Jyan8WvXBLqF8weGtIuogAkEGW4VL75QNM4Ui6-ef5LTrrTvJA/exec';
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
 
-async function loadData(){
+        box.innerHTML = '';
 
-  const r = await fetch(API);
+        data.forEach(item => {
+          const temp = Number(item.temp);
+          box.innerHTML += `
+            <div class="card">
+              <div class="num">Теплиця ${item.greenhouse}</div>
+              <div class="temp">${isNaN(temp) ? item.temp : temp.toFixed(1)}°C</div>
+            </div>
+          `;
+        });
 
-  const data = await r.json();
+        status.textContent = 'Оновлено: ' + new Date().toLocaleTimeString('uk-UA');
 
-  let html='';
+      } catch (err) {
+        status.textContent = 'Помилка завантаження даних';
+        console.error(err);
+      }
+    }
 
-  data.greenhouses.forEach(g=>{
-
-    html += `
-
-      <div class="card">
-
-        <h2>Теплиця ${g.number}</h2>
-
-        <div class="temp">${g.value} °C</div>
-
-      </div>
-
-    `;
-
-  });
-
-  document.getElementById('content').innerHTML = html;
-
-}
-
-loadData();
-
-setInterval(loadData,60000);
-
-</script>
+    loadData();
+    setInterval(loadData, 30000);
+  </script>
 
 </body>
-
 </html>
