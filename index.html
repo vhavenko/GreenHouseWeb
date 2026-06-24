@@ -48,6 +48,28 @@
       margin-top: 8px;
     }
 
+    .controls {
+      max-width: 1000px;
+      margin: 0 auto 12px auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .controls button {
+      background: #1f2933;
+      color: white;
+      border: 1px solid #ffffff33;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .controls button.active {
+      background: #2f855a;
+    }
+
     .chart-box {
       background: #1f2933;
       border-radius: 14px;
@@ -65,11 +87,14 @@
     }
   </style>
 </head>
+
 <body>
 
   <h1>Теплиці</h1>
 
   <div class="grid" id="greenhouses"></div>
+
+  <div class="controls" id="chartControls"></div>
 
   <div class="chart-box">
     <canvas id="tempChart"></canvas>
@@ -78,21 +103,68 @@
   <div class="status" id="status">Завантаження...</div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwrDpZf2UEC-jx_iiVQmH69GLYAd5nB0-lTXzWY5RrxrSCavCFjEAIuzqmOn0Wu1BInTQ/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbz7E4kd4iFHySkV8BL8hvx7XT8oToAE6KN8ZORgV6IHtYHHpJ7A29mjXWi9T7JXqhnF2Q/exec';
 
     let tempChart = null;
+
+    let chartSettings = JSON.parse(localStorage.getItem('chartSettings')) || {
+      hours: 3,
+      visible: {
+        green1: true,
+        green2: true,
+        green3: true,
+        green4: true,
+        green5: true,
+        green6: true
+      }
+    };
+
+    function saveChartSettings() {
+      localStorage.setItem('chartSettings', JSON.stringify(chartSettings));
+    }
+
+    function renderControls() {
+      const controls = document.getElementById('chartControls');
+
+      controls.innerHTML = `
+        <button onclick="setHours(3)" class="${chartSettings.hours === 3 ? 'active' : ''}">3 год</button>
+        <button onclick="setHours(6)" class="${chartSettings.hours === 6 ? 'active' : ''}">6 год</button>
+        <button onclick="setHours(12)" class="${chartSettings.hours === 12 ? 'active' : ''}">12 год</button>
+
+        <button onclick="toggleGreen('green1')" class="${chartSettings.visible.green1 ? 'active' : ''}">Т1</button>
+        <button onclick="toggleGreen('green2')" class="${chartSettings.visible.green2 ? 'active' : ''}">Т2</button>
+        <button onclick="toggleGreen('green3')" class="${chartSettings.visible.green3 ? 'active' : ''}">Т3</button>
+        <button onclick="toggleGreen('green4')" class="${chartSettings.visible.green4 ? 'active' : ''}">Т4</button>
+        <button onclick="toggleGreen('green5')" class="${chartSettings.visible.green5 ? 'active' : ''}">Т5</button>
+        <button onclick="toggleGreen('green6')" class="${chartSettings.visible.green6 ? 'active' : ''}">Т6</button>
+      `;
+    }
+
+    function setHours(h) {
+      chartSettings.hours = h;
+      saveChartSettings();
+      renderControls();
+      loadData();
+    }
+
+    function toggleGreen(id) {
+      chartSettings.visible[id] = !chartSettings.visible[id];
+      saveChartSettings();
+      renderControls();
+      loadData();
+    }
 
     async function loadData() {
       const box = document.getElementById('greenhouses');
       const status = document.getElementById('status');
 
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_URL + '?hours=' + chartSettings.hours);
         const data = await res.json();
 
         box.innerHTML = '';
 
-        data.current.forEach(item => {
+        (data.current || []).forEach(item => {
           const temp = Number(String(item.temp).replace(',', '.'));
 
           box.innerHTML += `
@@ -103,7 +175,7 @@
           `;
         });
 
-        drawChart(data.chart);
+        drawChart(data.chart || []);
 
         status.textContent = 'Оновлено: ' + new Date().toLocaleTimeString('uk-UA');
 
@@ -119,9 +191,20 @@
       const datasets = [];
 
       for (let i = 1; i <= 6; i++) {
+        const id = 'green' + i;
+
+        if (!chartSettings.visible[id]) continue;
+
         datasets.push({
           label: 'Теплиця ' + i,
-          data: chartData.map(row => row['green' + i] ?? null),
+          data: chartData.map(row => {
+            const v = row[id];
+
+            if (v === '' || v === null || v === undefined) return null;
+
+            const n = Number(String(v).replace(',', '.'));
+            return isNaN(n) ? null : n;
+          }),
           tension: 0.3,
           pointRadius: 0,
           borderWidth: 2
@@ -156,6 +239,7 @@
             tooltip: {
               callbacks: {
                 label: function(context) {
+                  if (context.parsed.y === null) return context.dataset.label + ': --';
                   return context.dataset.label + ': ' + context.parsed.y + '°C';
                 }
               }
@@ -185,6 +269,7 @@
       });
     }
 
+    renderControls();
     loadData();
     setInterval(loadData, 30000);
   </script>
