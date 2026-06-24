@@ -3,33 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GreenHouseWeb</title>
+  <title>Теплиці</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #101820;
       color: white;
       margin: 0;
-      padding: 20px;
+      padding: 16px;
     }
-    h1 { text-align: center; }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 15px;
-      max-width: 700px;
-      margin: 20px auto;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      max-width: 800px;
+      margin: 0 auto 25px auto;
     }
+
     .card {
       background: #1f2933;
       border-radius: 14px;
-      padding: 20px;
+      padding: 18px;
       text-align: center;
-      box-shadow: 0 0 10px #0005;
+      box-shadow: 0 0 10px #0006;
     }
-    .num { font-size: 18px; opacity: 0.8; }
-    .temp { font-size: 36px; font-weight: bold; margin-top: 10px; }
-    .status { text-align: center; margin-top: 20px; opacity: 0.7; }
+
+    .num {
+      font-size: 16px;
+      opacity: 0.8;
+    }
+
+    .temp {
+      font-size: 34px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
+    .chart-box {
+      background: #1f2933;
+      border-radius: 14px;
+      padding: 14px;
+      max-width: 1000px;
+      margin: 0 auto;
+      height: 420px;
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 16px;
+      opacity: 0.75;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -37,10 +70,18 @@
   <h1>Теплиці</h1>
 
   <div class="grid" id="greenhouses"></div>
+
+  <div class="chart-box">
+    <canvas id="tempChart"></canvas>
+  </div>
+
   <div class="status" id="status">Завантаження...</div>
 
   <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbyxMJe_WclM2KoOAVy7yo5vBclHaT8mkogQoKy29VpFkiz-RtKcDiZ5APvOFs1lfHG9DQ/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyviPvjsKbZ1DqfyCW-I1DPnwn9HaaRaNpPwKZbq5VLqFbRgCjBGzkSrRqRWCgH0Y5guQ/exec';
+
+    let tempChart = null;
+
     async function loadData() {
       const box = document.getElementById('greenhouses');
       const status = document.getElementById('status');
@@ -51,22 +92,97 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyxMJe_WclM2KoOAVy7yo5v
 
         box.innerHTML = '';
 
-        data.forEach(item => {
-          const temp = Number(item.temp);
+        data.current.forEach(item => {
+          const temp = Number(String(item.temp).replace(',', '.'));
+
           box.innerHTML += `
             <div class="card">
               <div class="num">Теплиця ${item.greenhouse}</div>
-              <div class="temp">${isNaN(temp) ? item.temp : temp.toFixed(1)}°C</div>
+              <div class="temp">${isNaN(temp) ? '--' : temp.toFixed(1)}°C</div>
             </div>
           `;
         });
 
+        drawChart(data.chart);
+
         status.textContent = 'Оновлено: ' + new Date().toLocaleTimeString('uk-UA');
 
       } catch (err) {
-        status.textContent = 'Помилка завантаження даних';
         console.error(err);
+        status.textContent = 'Помилка завантаження даних';
       }
+    }
+
+    function drawChart(chartData) {
+      const labels = chartData.map(row => row.time);
+
+      const datasets = [];
+
+      for (let i = 1; i <= 6; i++) {
+        datasets.push({
+          label: 'Теплиця ' + i,
+          data: chartData.map(row => row['green' + i] ?? null),
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2
+        });
+      }
+
+      const ctx = document.getElementById('tempChart').getContext('2d');
+
+      if (tempChart) {
+        tempChart.destroy();
+      }
+
+      tempChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: 'white'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y + '°C';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: 'white',
+                maxTicksLimit: 12
+              },
+              grid: {
+                color: '#ffffff18'
+              }
+            },
+            y: {
+              ticks: {
+                color: 'white',
+                callback: value => value + '°C'
+              },
+              grid: {
+                color: '#ffffff18'
+              }
+            }
+          }
+        }
+      });
     }
 
     loadData();
